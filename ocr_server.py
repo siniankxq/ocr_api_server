@@ -2,6 +2,7 @@
 import argparse
 import base64
 import json
+from functools import wraps
 
 import ddddocr
 from flask import Flask, request
@@ -91,8 +92,25 @@ def set_ret(result, ret_type='text'):
             return str(result).strip()
 
 
+# 假设这是你的验证函数，根据实际情况进行替换
+def verify_token(token):
+    valid_tokens = ["*fceTUpFBpM@9ku2"]  # 替换为你的有效 Token 列表
+    return token in valid_tokens
+
+# 装饰器函数，用于验证 Token
+def token_required(func):
+    @wraps(func)
+    def decorated_function(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token or not verify_token(token):
+            return {'error': 'Unauthorized'}, 401  # 返回未授权的错误
+        return func(*args, **kwargs)
+
+    return decorated_function
+
 @app.route('/<opt>/<img_type>', methods=['POST'])
 @app.route('/<opt>/<img_type>/<ret_type>', methods=['POST'])
+@token_required
 def ocr(opt, img_type='file', ret_type='text'):
     try:
         img = get_img(request, img_type)
@@ -108,6 +126,7 @@ def ocr(opt, img_type='file', ret_type='text'):
 
 @app.route('/slide/<algo_type>/<img_type>', methods=['POST'])
 @app.route('/slide/<algo_type>/<img_type>/<ret_type>', methods=['POST'])
+@token_required
 def slide(algo_type='compare', img_type='file', ret_type='text'):
     try:
         target_img = get_img(request, img_type, 'target_img')
@@ -120,6 +139,9 @@ def slide(algo_type='compare', img_type='file', ret_type='text'):
 @app.route('/ping', methods=['GET'])
 def ping():
     return "pong"
+
+
+
 
 
 if __name__ == '__main__':
